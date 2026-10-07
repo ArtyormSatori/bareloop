@@ -76,10 +76,15 @@ coverage/
 .lerna.json
 lerna-debug.log*
 
-# Local scratch files & candidate notes
+# Local scratch files, prompts & private design notes
 /t.py
+prompt.txt
 *DOSSIER*.md
 *.local
 *.local.*
 .eval_cache/
+docs/*.md
+docs/superpowers/
+!docs/assets/
+
 
