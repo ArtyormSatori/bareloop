@@ -151,6 +151,7 @@ skipped with a visible error; it never falls back to parsing free-form output.
 git clone https://github.com/OpenLucasKaka/bareloop.git
 cd bareloop
 uv sync
+uv run pre-commit install
 cp .env.example .env
 ```
 
