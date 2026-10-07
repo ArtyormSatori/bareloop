@@ -24,6 +24,27 @@ def test_shell_uses_optional_cwd(tmp_path: Path) -> None:
     assert run_bash("pwd", cwd=tmp_path) == str(tmp_path)
 
 
+def test_shell_custom_timeout_and_dispatch(tmp_path: Path) -> None:
+    from bareloop.tools.dispatcher import dispatch_tool
+    from bareloop.tools.registry import get_tool
+
+    bash_tool = get_tool("bash")
+    assert bash_tool is not None
+    timeout_prop = bash_tool.parameters["properties"].get("timeout")
+    assert timeout_prop is not None
+    assert timeout_prop["type"] == "integer"
+    assert timeout_prop["minimum"] == 1
+    assert timeout_prop["maximum"] == 600
+
+    # Test quick success with custom timeout
+    res_ok = dispatch_tool("bash", {"command": "echo ok", "timeout": 10}, workspace=tmp_path)
+    assert res_ok == "ok"
+
+    # Test timeout failure
+    res_timeout = dispatch_tool("bash", {"command": "sleep 5", "timeout": 1}, workspace=tmp_path)
+    assert "Error: Command timed out after 1 seconds" in res_timeout
+
+
 def test_filesystem_uses_cwd_as_security_root(tmp_path: Path) -> None:
     from bareloop.tools.filesystem import run_glob, run_read, run_write
 

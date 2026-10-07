@@ -24,6 +24,7 @@ for schema in TEAMMATE_TOOLS:
     properties.pop("cwd", None)
     if schema["function"]["name"] == "bash":
         properties.pop("shouldBack", None)
+        properties.pop("timeout", None)
 TEAMMATE_TOOLS.append(
     {
         "type": "function",

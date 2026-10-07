@@ -54,6 +54,12 @@ _TOOL_DEFINITIONS = (
             {
                 "command": _string("需要执行的命令"),
                 "cwd": _string("可选的命令工作目录"),
+                "timeout": {
+                    "type": "integer",
+                    "description": "Command execution timeout in seconds (1-600)",
+                    "minimum": 1,
+                    "maximum": 600,
+                },
                 "shouldBack": {
                     "type": "boolean",
                     "description": "是否在后台执行长任务",

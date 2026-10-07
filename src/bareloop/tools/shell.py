@@ -40,7 +40,7 @@ def run_shell_process(
         output = (stdout + stderr).strip()
         return (output[:50000] if output else "(no output)"), process.returncode
     except subprocess.TimeoutExpired:
-        return f"Error: timeout after {timeout}s", None
+        return f"Error: Command timed out after {timeout} seconds", None
     except OSError as error:
         return f"Error: {type(error).__name__}: {error}", None
     finally:
@@ -59,8 +59,10 @@ def run_shell_process(
 def run_bash(
     command: str,
     cwd: str | Path | None = None,
+    timeout: int | None = 120,
 ) -> str:
-    return format_shell_result(*run_shell_process(command, cwd=cwd))
+    actual_timeout = 120 if timeout is None else timeout
+    return format_shell_result(*run_shell_process(command, cwd=cwd, timeout=actual_timeout))
 
 
 def run_agent_bash(command: str) -> str:
