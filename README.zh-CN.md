@@ -138,6 +138,7 @@ MCP Tool 的结果随后返回下一轮模型调用；已接入的生命周期�
 git clone https://github.com/OpenLucasKaka/bareloop.git
 cd bareloop
 uv sync
+uv run pre-commit install
 cp .env.example .env
 ```
 
