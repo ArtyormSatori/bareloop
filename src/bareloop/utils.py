@@ -38,3 +38,32 @@ def format_team_events(msgs: list[dict]) -> str:
         suffix = f" request_id={request_id}" if request_id else ""
         lines.append(f"[{msg['type']}{suffix}] {msg['from']}: {msg['content']}")
     return "[Team events]\n" + "\n".join(lines)
+
+
+def retry_with_backoff(
+    fn,
+    max_retries: int = 3,
+    initial_delay: float = 1.0,
+    multiplier: float = 2.0,
+    max_delay: float = 10.0,
+    sleep_fn=None,
+):
+    """Retries transient provider errors with exponential backoff."""
+    import time
+
+    from openai import APIConnectionError, InternalServerError, RateLimitError
+
+    sleep = sleep_fn if sleep_fn is not None else time.sleep
+    delay = initial_delay
+    transient_errors = (RateLimitError, APIConnectionError, InternalServerError)
+
+    for attempt in range(max_retries + 1):
+        try:
+            return fn()
+        except transient_errors:
+            if attempt >= max_retries:
+                raise
+            sleep(delay)
+            delay = min(delay * multiplier, max_delay)
+        except Exception:
+            raise

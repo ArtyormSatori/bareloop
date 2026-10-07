@@ -45,6 +45,78 @@ def test_shell_custom_timeout_and_dispatch(tmp_path: Path) -> None:
     assert "Error: Command timed out after 1 seconds" in res_timeout
 
 
+def test_retry_with_backoff_transient_and_permanent() -> None:
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    import httpx
+    from openai import AuthenticationError, RateLimitError
+
+    from bareloop.loop import execute_agent_loop
+    from bareloop.utils import retry_with_backoff
+
+    sleep_mock = MagicMock()
+    attempts = [0]
+
+    def flaky_func():
+        attempts[0] += 1
+        if attempts[0] < 3:
+            req = httpx.Request("POST", "http://test")
+            resp = httpx.Response(429, request=req)
+            raise RateLimitError("Rate limit exceeded", response=resp, body=None)
+        return "success"
+
+    # Verifies retry succeed on transient
+    result = retry_with_backoff(flaky_func, max_retries=3, sleep_fn=sleep_mock)
+    assert result == "success"
+    assert attempts[0] == 3
+    assert sleep_mock.call_count == 2
+
+    # Verifies permanent error immediately fails without retry
+    sleep_mock.reset_mock()
+    permanent_attempts = [0]
+
+    def permanent_fail():
+        permanent_attempts[0] += 1
+        req = httpx.Request("POST", "http://test")
+        resp = httpx.Response(401, request=req)
+        raise AuthenticationError("Unauthorized", response=resp, body=None)
+
+    with pytest.raises(AuthenticationError):
+        retry_with_backoff(permanent_fail, max_retries=3, sleep_fn=sleep_mock)
+    assert permanent_attempts[0] == 1
+    assert sleep_mock.call_count == 0
+
+    # Verifies loop integration with transient error recovery
+    loop_call_count = [0]
+
+    def loop_create(**kwargs):
+        loop_call_count[0] += 1
+        if loop_call_count[0] == 1:
+            req = httpx.Request("POST", "http://test")
+            resp = httpx.Response(429, request=req)
+            raise RateLimitError("Rate limit", response=resp, body=None)
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="done", tool_calls=None))]
+        )
+
+    mock_client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=loop_create))
+    )
+    mock_tok = SimpleNamespace(apply_chat_template=lambda *_args, **_kwargs: [])
+    loop_res = execute_agent_loop(
+        [{"role": "user", "content": "hi"}],
+        client=mock_client,
+        model="test-model",
+        tokenizer=mock_tok,
+        workdir=None,
+        max_rounds=1,
+    )
+    assert loop_res.completed is True
+    assert loop_res.final_output == "done"
+    assert loop_call_count[0] == 2
+
+
 def test_filesystem_uses_cwd_as_security_root(tmp_path: Path) -> None:
     from bareloop.tools.filesystem import run_glob, run_read, run_write
 

@@ -32,7 +32,7 @@ from bareloop.telemetry import (
 from bareloop.tools.dispatcher import dispatch_tool_result
 from bareloop.tools.registry import get_tool_schemas
 from bareloop.trace import TraceWriter
-from bareloop.utils import normalize_tool_call
+from bareloop.utils import normalize_tool_call, retry_with_backoff
 
 _MEMORY_MAINTENANCE_EXECUTOR = ThreadPoolExecutor(
     max_workers=1,  # 避免多个worker同时修改memory
@@ -296,9 +296,12 @@ def execute_agent_loop(
                 rounds += 1
                 provider_started_at = perf_counter()
                 try:
-                    response = client.chat.completions.create(
-                        model=model, messages=request_messages, tools=tool_schemas
-                    )
+                    def _invoke_provider(msgs=request_messages, tools=tool_schemas) -> Any:
+                        return client.chat.completions.create(
+                            model=model, messages=msgs, tools=tools
+                        )
+
+                    response = retry_with_backoff(_invoke_provider)
                 except Exception as error:
                     error_str = str(error).lower()
                     is_overflow = any(
@@ -320,9 +323,14 @@ def execute_agent_loop(
                         messages[:] = reactive_compact(messages)
                         request_messages = messages
                         try:
-                            response = client.chat.completions.create(
-                                model=model, messages=request_messages, tools=tool_schemas
-                            )
+                            def _invoke_compact_retry(
+                                msgs=request_messages, tools=tool_schemas
+                            ) -> Any:
+                                return client.chat.completions.create(
+                                    model=model, messages=msgs, tools=tools
+                                )
+
+                            response = retry_with_backoff(_invoke_compact_retry)
                             provider_failed = False
                         except Exception as retry_err:
                             telemetry.provider_calls.append(
