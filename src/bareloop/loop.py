@@ -415,8 +415,6 @@ def execute_agent_loop(
                     continue
                 if not decision.ok:
                     if print_output:
-                        if message.content:
-                            logger.info(message.content)
                         logger.warning(f"[goal blocked] {decision.reason}")
                     return LoopExecutionResult(
                         completed=False,
@@ -431,11 +429,8 @@ def execute_agent_loop(
             hook_tool_count = (
                 trigger_hook("Stop", messages) if enable_finalizers and enable_hooks else None
             )
-            if print_output:
-                if message.content:
-                    logger.info(message.content)
-                if hook_tool_count:
-                    logger.info(f"本轮对话结束: 共调用工具次数:{hook_tool_count}")
+            if print_output and hook_tool_count:
+                logger.info(f"本轮对话结束: 共调用工具次数:{hook_tool_count}")
             if enable_finalizers and enable_memory:
                 schedule_memory_maintenance(memory_evidence_messages)
             return LoopExecutionResult(
